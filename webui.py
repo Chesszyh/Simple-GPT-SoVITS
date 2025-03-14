@@ -1,92 +1,128 @@
-import os,sys
-if len(sys.argv)==1:sys.argv.append('v2')
-version="v1"if sys.argv[1]=="v1" else"v2"
-os.environ["version"]=version
-now_dir = os.getcwd()
-sys.path.insert(0, now_dir)
+import os
+import sys
 import warnings
-warnings.filterwarnings("ignore")
-import json,yaml,torch,pdb,re,shutil
+import json
+import yaml
+import torch
+import re
+import shutil
 import platform
 import psutil
 import signal
+import site
+import traceback
+from scipy.io import wavfile
+from multiprocessing import cpu_count
+from subprocess import Popen
+from tools import my_utils
+from tools.my_utils import load_audio, check_for_existance, check_details
+from tools.i18n.i18n import I18nAuto, scan_language_list
+from config import (
+    python_exec, infer_device, is_half, exp_root, 
+    webui_port_main, webui_port_infer_tts, 
+    webui_port_uvr5, webui_port_subfix, is_share
+)
+
+# Determine version from command line argument
+if len(sys.argv) == 1:
+    sys.argv.append('v2')
+version = "v1" if sys.argv[1] == "v1" else "v2"
+os.environ["version"] = version
+
+# Setup environment
+now_dir = os.getcwd()
+sys.path.insert(0, now_dir)
+warnings.filterwarnings("ignore")
 os.environ['TORCH_DISTRIBUTED_DEBUG'] = 'INFO'
 torch.manual_seed(233333)
+
+# Set up temporary directory
 tmp = os.path.join(now_dir, "TEMP")
 os.makedirs(tmp, exist_ok=True)
 os.environ["TEMP"] = tmp
-if(os.path.exists(tmp)):
+
+# Clean temporary directory
+if os.path.exists(tmp):
     for name in os.listdir(tmp):
-        if(name=="jieba.cache"):continue
-        path="%s/%s"%(tmp,name)
-        delete=os.remove if os.path.isfile(path) else shutil.rmtree
+        if name == "jieba.cache":
+            continue
+        path = f"{tmp}/{name}"
+        delete = os.remove if os.path.isfile(path) else shutil.rmtree
         try:
             delete(path)
         except Exception as e:
             print(str(e))
-            pass
-import site
-import traceback
-site_packages_roots = []
-for path in site.getsitepackages():
-    if "packages" in path:
-        site_packages_roots.append(path)
-if(site_packages_roots==[]):site_packages_roots=["%s/runtime/Lib/site-packages" % now_dir]
-#os.environ["OPENBLAS_NUM_THREADS"] = "4"
+
+# Configure site packages
+site_packages_roots = [path for path in site.getsitepackages() if "packages" in path]
+if not site_packages_roots:
+    site_packages_roots = [f"{now_dir}/runtime/Lib/site-packages"]
+
+# Set environment variables
 os.environ["no_proxy"] = "localhost, 127.0.0.1, ::1"
 os.environ["all_proxy"] = ""
+
+# Create users.pth in site packages
 for site_packages_root in site_packages_roots:
     if os.path.exists(site_packages_root):
         try:
-            with open("%s/users.pth" % (site_packages_root), "w") as f:
-                f.write(
-                    # "%s\n%s/runtime\n%s/tools\n%s/tools/asr\n%s/GPT_SoVITS\n%s/tools/uvr5"
-                    "%s\n%s/GPT_SoVITS/BigVGAN\n%s/tools\n%s/tools/asr\n%s/GPT_SoVITS\n%s/tools/uvr5"
-                    % (now_dir, now_dir, now_dir, now_dir, now_dir, now_dir)
-                )
+            with open(f"{site_packages_root}/users.pth", "w") as f:
+                paths = [
+                    now_dir,
+                    f"{now_dir}/GPT_SoVITS/BigVGAN",
+                    f"{now_dir}/tools",
+                    f"{now_dir}/tools/asr",
+                    f"{now_dir}/GPT_SoVITS",
+                    f"{now_dir}/tools/uvr5"
+                ]
+                f.write("\n".join(paths))
             break
-        except PermissionError as e:
+        except PermissionError:
             traceback.print_exc()
-from tools import my_utils
-import shutil
-import pdb
-import subprocess
-from subprocess import Popen
-import signal
-from config import python_exec,infer_device,is_half,exp_root,webui_port_main,webui_port_infer_tts,webui_port_uvr5,webui_port_subfix,is_share
-from tools.i18n.i18n import I18nAuto, scan_language_list
-language=sys.argv[-1] if sys.argv[-1] in scan_language_list() else "Auto"
-os.environ["language"]=language
+
+# Configure language
+language = sys.argv[-1] if sys.argv[-1] in scan_language_list() else "Auto"
+os.environ["language"] = language
 i18n = I18nAuto(language=language)
-from scipy.io import wavfile
-from tools.my_utils import load_audio, check_for_existance, check_details
-from multiprocessing import cpu_count
-# os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1' # 当遇到mps不支持的步骤时使用cpu
+
+# Disable Gradio analytics version check
 try:
     import gradio.analytics as analytics
-    analytics.version_check = lambda:None
-except:...
-import gradio as gr
-n_cpu=cpu_count()
+    analytics.version_check = lambda: None
+except:
+    pass
 
+import gradio as gr
+
+# CPU count for parallel processing
+n_cpu = cpu_count()
+
+# GPU detection and configuration
 ngpu = torch.cuda.device_count()
 gpu_infos = []
 mem = []
 if_gpu_ok = False
 
-# 判断是否有能用来训练和加速推理的N卡
-ok_gpu_keywords={"10","16","20","30","40","A2","A3","A4","P4","A50","500","A60","70","80","90","M4","T4","TITAN","L4","4060","H","600","506","507","508","509"}
-set_gpu_numbers=set()
+# Keywords for identifying suitable GPUs
+ok_gpu_keywords = {
+    "10", "16", "20", "30", "40", "A2", "A3", "A4", "P4", "A50", 
+    "500", "A60", "70", "80", "90", "M4", "T4", "TITAN", "L4", 
+    "4060", "H", "600", "506", "507", "508", "509"
+}
+set_gpu_numbers = set()
+
+# Check available GPUs
 if torch.cuda.is_available() or ngpu != 0:
     for i in range(ngpu):
         gpu_name = torch.cuda.get_device_name(i)
-        if any(value in gpu_name.upper()for value in ok_gpu_keywords):
-            # A10#A100#V100#A40#P40#M40#K80#A4500
-            if_gpu_ok = True  # 至少有一张能用的N卡
-            gpu_infos.append("%s\t%s" % (i, gpu_name))
+        if any(value in gpu_name.upper() for value in ok_gpu_keywords):
+            if_gpu_ok = True  # At least one usable NVIDIA GPU
+            gpu_infos.append(f"{i}\t{gpu_name}")
             set_gpu_numbers.add(i)
-            mem.append(int(torch.cuda.get_device_properties(i).total_memory/ 1024/ 1024/ 1024+ 0.4))
+            mem.append(int(torch.cuda.get_device_properties(i).total_memory / 1024 / 1024 / 1024 + 0.4))
 
+
+# Set default values
 def set_default():
     global default_batch_size,default_max_batch_size,gpu_info,default_sovits_epoch,default_sovits_save_every_epoch,max_sovits_epoch,max_sovits_save_every_epoch,default_batch_size_s1,if_force_ckpt
     if_force_ckpt = False
