@@ -86,11 +86,6 @@ if torch.cuda.is_available() or ngpu != 0:
             gpu_infos.append("%s\t%s" % (i, gpu_name))
             set_gpu_numbers.add(i)
             mem.append(int(torch.cuda.get_device_properties(i).total_memory/ 1024/ 1024/ 1024+ 0.4))
-# # 判断是否支持mps加速
-# if torch.backends.mps.is_available():
-#     if_gpu_ok = True
-#     gpu_infos.append("%s\t%s" % ("0", "Apple GPU"))
-#     mem.append(psutil.virtual_memory().total/ 1024 / 1024 / 1024) # 实测使用系统内存作为显存不会爆显存
 
 def set_default():
     global default_batch_size,default_max_batch_size,gpu_info,default_sovits_epoch,default_sovits_save_every_epoch,max_sovits_epoch,max_sovits_save_every_epoch,default_batch_size_s1,if_force_ckpt
@@ -98,25 +93,6 @@ def set_default():
     if if_gpu_ok and len(gpu_infos) > 0:
         gpu_info = "\n".join(gpu_infos)
         minmem = min(mem)
-        # if version == "v3" and minmem < 14:
-        #     # API读取不到共享显存,直接填充确认
-        #     try:
-        #         torch.zeros((1024,1024,1024,14),dtype=torch.int8,device="cuda")
-        #         torch.cuda.empty_cache()
-        #         minmem = 14
-        #     except RuntimeError as _:
-        #         # 强制梯度检查只需要12G显存
-        #         if minmem >= 12 :
-        #             if_force_ckpt = True
-        #             minmem = 14
-        #         else:
-        #             try:
-        #                 torch.zeros((1024,1024,1024,12),dtype=torch.int8,device="cuda")
-        #                 torch.cuda.empty_cache()
-        #                 if_force_ckpt = True
-        #                 minmem = 14
-        #             except RuntimeError as _:
-        #                 print("显存不足以开启V3训练")
         default_batch_size = minmem // 2 if version!="v3"else minmem//8
         default_batch_size_s1=minmem // 2
     else:

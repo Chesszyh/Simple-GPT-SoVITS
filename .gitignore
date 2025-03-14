@@ -18,3 +18,8 @@ TEMP
 weight.json
 ffmpeg*
 ffprobe*
+models/
+model/
+pretrain_models/
+pretrain_model/
+train_data/
