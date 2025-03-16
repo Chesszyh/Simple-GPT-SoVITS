@@ -1,19 +1,27 @@
-from gradio_client import Client
+import requests
 
-client = Client("http://localhost:9874/")
-result = client.predict(
-		batch_size=4,
-		total_epoch=8,
-		exp_name="xxx",
-		text_low_lr_rate=0.4,
-		if_save_latest=True,
-		if_save_every_weights=True,
-		save_every_epoch=4,
-		gpu_numbers1Ba="0",
-		pretrained_s2G="GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/s2G2333k.pth",
-		pretrained_s2D="GPT_SoVITS/pretrained_models/gsv-v2final-pretrained/s2D2333k.pth",
-		if_grad_ckpt=False,
-		lora_rank="32",
-		api_name="/open1Ba"
-)
-print(result)
+url = "http://localhost:9880/tts"
+params = {
+    "prompt_lang": "en",
+    "prompt_text": "Hello. What's wrong with you? Fuck you!",
+    "text_split_method": "cut5",
+    "batch_size": 1,
+    "media_type": "wav",
+    "streaming_mode": "true"
+}
+
+try:
+    response = requests.get(url, params=params, stream=True)
+    response.raise_for_status()  # 检查请求是否成功
+
+    if response.headers['Content-Type'] == 'audio/wav':
+        with open("output.wav", "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print("音频已保存到 output.wav")
+    else:
+        print("错误：返回的不是音频数据")
+        print(response.json())
+
+except requests.exceptions.RequestException as e:
+    print(f"请求出错: {e}")

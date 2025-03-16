@@ -1,3 +1,19 @@
+## My Fork Updates
+
+### 20250316
+
+- Gradio API: 不需要手动改为headless模式，webui页面底端就提供了API访问文档
+  - 他们项目自己的API文档还是有些欠缺的
+  - <https://www.gradio.app/docs/python-client/introduction>
+  - <https://www.gradio.app/guides/fastapi-app-with-the-gradio-client>
+  - <https://www.gradio.app/guides/querying-gradio-apps-with-curl>
+- 开始重构`api.py`和`api_v2.py`，提取一些公共函数或者类到`api_tools.py`里
+  - 我的理解是，api.py只应该存放api的调用逻辑，不应该放什么乱七八糟的处理逻辑
+  - 写了一半知乎吐槽文，想想还是算了，你jb谁啊就敢吐槽人家？
+  - 不过还是好奇，python项目都这个风格吗？用项目的这么多人里就没有人想过去重构一下……吗？
+- 思路：API改好后，集成到OpenManus项目里，这样AI Agent就可以与用户直接对话(?)了
+- NOTE **GPT项目从wsl2启动，manus从win11启动，wsl2也配好了环境，但还没试**
+
 ### 20250315
 
 - 打算**去除全部gradio依赖**，只支持headless服务器推理模式
@@ -21,6 +37,8 @@
   - 但是windows里装更麻烦，还不如直接用整合包
   - 刚发现wsl2是因为`conda`和`pip`在`torch`和`pytorch`上的命名分歧导致安装失败
   - 所以还得重新配环境
+
+## 原项目更新
 
 ### 20240121更新
 

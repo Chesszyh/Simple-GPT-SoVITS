@@ -3,13 +3,23 @@ import sys,os
 import torch
 
 # 推理用的指定模型
-sovits_path = ""
-gpt_path = ""
+
+# FIXME 调试时直接指定这些项
+sovits_path = "SoVITS_weights/e8_s888.pth"
+gpt_path = "GPT_weights/neuro_e15.ckpt"
+
+# 我自己加的
+ref_audio_path = "test/neuro_ref_1.wav"
+ref_audio_text = "They were so cute. I wanted to pet them but I was too scared."
+ref_audio_text_lang = "en"
+
+
 is_half_str = os.environ.get("is_half", "True")
 is_half = True if is_half_str.lower() == 'true' else False
 is_share_str = os.environ.get("is_share","False")
 is_share= True if is_share_str.lower() == 'true' else False
 
+# 这些其实不一定是最好的，可以huggingcface上再翻翻
 cnhubert_path = "GPT_SoVITS/pretrained_models/chinese-hubert-base"
 bert_path = "GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large"
 pretrained_sovits_path = "GPT_SoVITS/pretrained_models/s2G488k.pth"
@@ -17,10 +27,7 @@ pretrained_gpt_path = "GPT_SoVITS/pretrained_models/s1bert25hz-2kh-longer-epoch=
 
 exp_root = "logs"
 python_exec = sys.executable or "python"
-if torch.cuda.is_available():
-    infer_device = "cuda"
-else:
-    infer_device = "cpu"
+infer_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 webui_port_main = 9874
 webui_port_uvr5 = 9873
@@ -41,7 +48,8 @@ if infer_device == "cuda":
     ):
         is_half=False
 
-if(infer_device=="cpu"):is_half=False
+if(infer_device=="cpu"):
+    is_half=False
 
 class Config:
     def __init__(self):
@@ -64,3 +72,9 @@ class Config:
         self.webui_port_subfix = webui_port_subfix
 
         self.api_port = api_port
+
+        # 自定义默认参数
+        self.ref_audio_path = ref_audio_path
+        self.ref_audio_text = ref_audio_text
+        self.ref_audio_text_lang = ref_audio_text_lang
+        
