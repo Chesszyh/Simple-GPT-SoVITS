@@ -1,3 +1,7 @@
+# Copilot
+
+## 重构代码
+
 请你阅读并重构以下项目的核心代码文件 `api.py`）。在重构中需要：
 
 1. **保留所有原本功能**  
@@ -35,3 +39,22 @@
 ---
 
 执行以上指令后，重构工具将输出新的代码版本。请务必在输出的文件中保留最核心的功能调用。
+
+## Gradio -> API
+
+"Convert the following Gradio-based WebUI code into a FastAPI (or other API-based) implementation to facilitate AI Agent calls. The API should preserve all functionalities, including user inputs, file processing, and interactions between components. The endpoints should be structured in a RESTful way, ensuring easy integration. Additionally, replace Gradio UI components (like `Textbox`, `Button`, `Dropdown`) with appropriate API endpoints that can handle equivalent operations. Return JSON responses where applicable. The API should also allow batch processing and handle concurrent requests efficiently.  
+
+Ensure that the final API implementation is well-structured, modular, and scalable for future extensions.
+
+NOTICE:DO NOT OMIT ANY PART OF THE CODE, EVEN IF THEY HAVE QUITE SIMILAR LOGIC!!! YOU MUST OUTPUT YOUR COMPLETE CODE!!!"
+
+
+Here's the full Gradio code:  
+
+```python
+# (Insert the entire Gradio code here)
+```
+
+### NOTE
+
+我发现gradio好像自带API调用方式，所以我做的好像又有点多此一举了。
